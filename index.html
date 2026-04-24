@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Painel Administrativo | Sebo & Livraria</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .bg-navy { background-color: #001a35; }
+        .text-accent { color: #ffcc00; }
+    </style>
+</head>
+<body>
+    <nav class="bg-navy py-4 px-8 flex justify-between items-center shadow-lg border-b-2 border-accent">
+        <h1 class="text-white font-black uppercase italic">S&L <span class="text-accent">Admin</span></h1>
+        <button onclick="carregarDados()" class="text-white text-[10px] font-black border border-white/20 px-4 py-2 hover:bg-white/10 uppercase">Sincronizar</button>
+    </nav>
+
+    <main class="max-w-7xl mx-auto p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2 space-y-8">
+            <section class="bg-white p-6 shadow-sm border-t-4 border-yellow-400">
+                <h2 class="font-black text-navy uppercase mb-6 italic flex items-center gap-2">📥 Propostas Pendentes</h2>
+                <div id="lista-propostas" class="grid gap-3"></div>
+            </section>
+
+            <section class="bg-white p-6 shadow-sm border-t-4 border-navy">
+                <h2 class="font-black text-navy uppercase mb-6 italic">🛒 Vendas</h2>
+                <div id="lista-pedidos" class="space-y-4"></div>
+            </section>
+        </div>
+
+        <div class="bg-navy p-8 shadow-xl text-white h-fit rounded-sm">
+            <h3 class="font-black text-accent uppercase text-xs mb-6 text-center">Adicionar ao Acervo</h3>
+            <form id="formAdd" class="space-y-4 text-slate-800">
+                <input type="text" id="addTitulo" placeholder="Título" class="w-full p-3 text-sm outline-none" required>
+                <input type="number" step="0.01" id="addPreco" placeholder="Preço R$" class="w-full p-3 text-sm outline-none" required>
+                <input type="number" id="addEstoque" placeholder="Estoque" class="w-full p-3 text-sm outline-none" required>
+                <button type="submit" class="w-full bg-yellow-400 text-navy py-3 font-black uppercase text-xs">Salvar</button>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        async function carregarDados() {
+            try {
+                const resL = await fetch('http://localhost:3000/livros');
+                const livros = await resL.json();
+                
+                // FILTRA TUDO QUE TEM "PROPOSTA" NO TÍTULO
+                const propostas = livros.filter(l => l.titulo.toUpperCase().includes("PROPOSTA"));
+                const containerProp = document.getElementById('lista-propostas');
+                
+                if(propostas.length === 0) {
+                    containerProp.innerHTML = '<p class="text-slate-400 text-xs italic">Sem propostas pendentes.</p>';
+                } else {
+                    containerProp.innerHTML = propostas.map(p => `
+                        <div class="flex justify-between items-center p-4 bg-yellow-50 border border-yellow-200">
+                            <div>
+                                <p class="font-bold text-navy text-sm uppercase">${p.titulo}</p>
+                                <p class="text-[10px] font-black text-yellow-700">R$ ${parseFloat(p.preco).toFixed(2)}</p>
+                            </div>
+                            <button onclick="aprovarProposta(${p.id})" class="bg-navy text-white px-4 py-2 text-[10px] font-black uppercase hover:bg-emerald-600 transition">Aprovar</button>
+                        </div>
+                    `).join('');
+                }
+
+                const resP = await fetch('http://localhost:3000/pedidos');
+                const pedidos = await resP.json();
+                document.getElementById('lista-pedidos').innerHTML = pedidos.map(p => `
+                    <div class="flex justify-between items-center p-4 border-b border-slate-100">
+                        <div><p class="text-[10px] text-slate-400 font-black uppercase italic">#${p.id}</p><p class="font-bold text-navy text-sm">${p.itens}</p></div>
+                        <div class="text-right"><p class="font-black text-navy text-sm">R$ ${parseFloat(p.total).toFixed(2)}</p><span class="text-[9px] font-bold uppercase bg-blue-100 px-2 rounded-full">${p.status}</span></div>
+                    </div>`).join('');
+            } catch(e) { console.log(e); }
+        }
+
+        async function aprovarProposta(id) {
+            await fetch(`http://localhost:3000/aprovar-livro/${id}`, { method: 'PUT' });
+            alert("Livro Aprovado!");
+            carregarDados();
+        }
+
+        document.getElementById('formAdd').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const novo = { titulo: addTitulo.value, imagem: 'capas/default.jpg', preco: parseFloat(addPreco.value), estoque: parseInt(addEstoque.value) };
+            await fetch('http://localhost:3000/livros', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(novo) });
+            alert("Cadastrado!"); e.target.reset(); carregarDados();
+        });
+
+        carregarDados();
+    </script>
+</body>
+</html>
